@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.1.0
+Version: 0.2.0
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -118,6 +118,10 @@ class wpu_acf_flexible__shopify {
         return false;
     }
 
+    /* ----------------------------------------------------------
+      Product
+    ---------------------------------------------------------- */
+
     public function get_product($product_id = false) {
         $shop_url = get_option('wpu_acfflexshopify__shop_url');
         $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/products/' . $product_id . '.json';
@@ -125,21 +129,8 @@ class wpu_acf_flexible__shopify {
             return false;
         }
 
-        $product_key = 'wpshopify_' . $product_id . '_' . md5($endpoint_url);
+        $p = $this->get_endpoint_value($endpoint_url, 'wpshopify_product_' . $product_id, 12 * 60 * 60);
 
-        if (false === ($product = get_transient($product_key))) {
-            $response = wp_remote_get($endpoint_url);
-            if (is_array($response) && !is_wp_error($response)) {
-                $product = $response['body'];
-                set_transient($product_key, $product, 12 * 60 * 60);
-            }
-        }
-
-        $p = json_decode($product);
-
-        if (!is_object($p)) {
-            return false;
-        }
         $p->product_url = $shop_url . '/products/' . $p->product->handle;
 
         return $p;
@@ -154,8 +145,49 @@ class wpu_acf_flexible__shopify {
         $html .= '<p class="product-vendor">' . $p->product->vendor . '</p>';
         $html .= '<p class="product-price"><strong>' . $p->product->variants[0]->price . '&euro;</strong></p>';
         $html .= '<p class="product-image"><a href="' . $p->product_url . '"><img src="' . $p->product->image->src . '" alt="' . esc_attr($product_name) . '" /></a></p>';
+        $html .= '<p class="product-cta"><a href="' . $p->product_url . '">' . __('View product') . '</a></p>';
         $html .= '</div>';
         return $html;
+    }
+
+    /* ----------------------------------------------------------
+      Get endpoint value
+    ---------------------------------------------------------- */
+
+    public function get_endpoint_value($endpoint_url, $item_option_id, $cache_duration) {
+        $p = false;
+
+        /* Set cache keys */
+        $item_transient_id = $item_option_id . '_' . md5($endpoint_url);
+
+        /* Try to obtain cached value */
+        $item = get_option($item_option_id);
+
+        /* Outdated transient : get new cache */
+        if (get_transient($item_transient_id) != '1') {
+            $response = wp_remote_get($endpoint_url);
+            /* If response is valid, find if it’s a correct item */
+            if (is_array($response) && !is_wp_error($response)) {
+                $p = json_decode($response['body']);
+
+                /* Correct item : update cache */
+                if (is_object($p)) {
+                    $item = $response['body'];
+                    update_option($item_option_id, $item);
+                }
+                set_transient($item_transient_id, '1', $cache_duration);
+            }
+        }
+
+        if (!is_object($p)) {
+            $p = json_decode($item);
+        }
+
+        if (!is_object($p)) {
+            return false;
+        }
+
+        return $p;
     }
 
 }
