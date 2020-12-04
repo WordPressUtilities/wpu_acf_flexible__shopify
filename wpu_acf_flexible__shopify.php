@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.2.0
+Version: 0.3.0
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -57,6 +57,40 @@ function wpu_acf_flexible__shopify_options_fields($options) {
     );
     return $options;
 }
+
+/* ----------------------------------------------------------
+  Purge Cache
+---------------------------------------------------------- */
+
+/* Menu item */
+add_action('admin_bar_menu', function ($wp_adminbar) {
+    if (!current_user_can('upload_files')) {
+        return;
+    }
+    $wp_adminbar->add_node(array(
+        'id' => 'wpu_acfflexshopify',
+        'title' => 'Shopify',
+        'href' => admin_url('admin.php?page=wpuoptions-settings&tab=wpu_acf_flexible__shopify__tab')
+    ));
+    $wp_adminbar->add_node(array(
+        'id' => 'wpu_acfflexshopify__purge',
+        'title' => __('Purge Cache', 'wpu_acfflexshopify'),
+        'parent' => 'wpu_acfflexshopify',
+        'href' => admin_url('?purge_acf_shopify=1')
+    ));
+}, 999);
+
+/* Purge & redirect */
+add_action('admin_head', function () {
+    if (!current_user_can('upload_files')) {
+        return;
+    }
+    if (!isset($_GET['purge_acf_shopify']) || $_GET['purge_acf_shopify'] != '1') {
+        return;
+    }
+    delete_transient('wpu_acf_flexible__shopify__product_list');
+    echo '<script>window.location.href="' . admin_url() . '";</script>';
+});
 
 /* ----------------------------------------------------------
   Helpers
