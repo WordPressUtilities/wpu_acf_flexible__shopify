@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.4.0
+Version: 0.5.0
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -88,10 +88,12 @@ add_action('admin_head', function () {
     if (!isset($_GET['purge_acf_shopify']) || $_GET['purge_acf_shopify'] != '1') {
         return;
     }
-    delete_transient('wpu_acf_flexible__shopify__custom_collections_list');
-    delete_transient('wpu_acf_flexible__shopify__smart_collections_list');
-    delete_transient('wpu_acf_flexible__shopify__products_list');
 
+    global $wpdb;
+    $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify__' ");
+    foreach ($transient_products as $transient_name) {
+        delete_transient(str_replace('_transient_', '', $transient_name));
+    }
     echo '<script>window.location.href="' . admin_url() . '";</script>';
 });
 
@@ -117,6 +119,12 @@ class wpu_acf_flexible__shopify {
         return 'https://' . $api_key . ':' . $api_password . '@' . $shop_url_details['host'];
     }
 
+    public function get_collection_products($collection_id) {
+        return $this->get_items_list('collections/' . $collection_id . '/products', array(
+            'key_name' => 'products'
+        ));
+    }
+
     public function get_custom_collections_list() {
         return $this->get_items_list('custom_collections');
     }
@@ -129,12 +137,18 @@ class wpu_acf_flexible__shopify {
         return $this->get_items_list('products');
     }
 
-    public function get_items_list($json_name) {
-        $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=id,title&limit=250';
+    public function get_items_list($json_name, $args = array()) {
+        if (!is_array($args)) {
+            $args = array();
+        }
+        if (!isset($args['key_name'])) {
+            $args['key_name'] = $json_name;
+        }
 
-        $cache_key = 'wpu_acf_flexible__shopify__' . $json_name . '_list';
+        $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=id,title&limit=250';
+        $cache_key = 'wpu_acf_flexible__shopify__' . sanitize_title($json_name) . '_list';
         if (false === ($item_list = get_transient($cache_key))) {
-            $item_list = $this->get_paged_query($endpoint_url, array(), $json_name);
+            $item_list = $this->get_paged_query($endpoint_url, array(), $args['key_name']);
             set_transient($cache_key, $item_list, 24 * 60 * 60);
         }
         return $item_list;
