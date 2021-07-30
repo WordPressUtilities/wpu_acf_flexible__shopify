@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.5.0
+Version: 0.5.1
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -90,7 +90,7 @@ add_action('admin_head', function () {
     }
 
     global $wpdb;
-    $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify__' ");
+    $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify%'");
     foreach ($transient_products as $transient_name) {
         delete_transient(str_replace('_transient_', '', $transient_name));
     }
