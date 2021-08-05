@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.6.0
+Version: 0.6.1
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -265,17 +265,19 @@ $wpu_acf_flexible__shopify = new wpu_acf_flexible__shopify();
   WP CLI
 ---------------------------------------------------------- */
 
-WP_CLI::add_command('wpu-acf-flex-shopify-purge-cache', function ($args) {
-    wpu_acf_flexible__shopify__purge_cache();
-    WP_CLI::success('WPU ACF Flex Shopify: Cache purged');
-});
+if (defined('WP_CLI') && WP_CLI) {
+    WP_CLI::add_command('wpu-acf-flex-shopify-purge-cache', function ($args) {
+        wpu_acf_flexible__shopify__purge_cache();
+        WP_CLI::success('WPU ACF Flex Shopify: Cache purged');
+    });
 
-WP_CLI::add_command('wpu-acf-flex-shopify-cache-warm', function ($args) {
-    $wpu_acf_flexible__shopify = new wpu_acf_flexible__shopify();
-    $wpu_acf_flexible__shopify->get_custom_collections_list();
-    WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Custom collections');
-    $wpu_acf_flexible__shopify->get_smart_collections_list();
-    WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Smart collections');
-    $wpu_acf_flexible__shopify->get_product_list();
-    WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Product list');
-});
+    WP_CLI::add_command('wpu-acf-flex-shopify-cache-warm', function ($args) {
+        $wpu_acf_flexible__shopify = new wpu_acf_flexible__shopify();
+        $wpu_acf_flexible__shopify->get_custom_collections_list();
+        WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Custom collections');
+        $wpu_acf_flexible__shopify->get_smart_collections_list();
+        WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Smart collections');
+        $wpu_acf_flexible__shopify->get_product_list();
+        WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Product list');
+    });
+}
