@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.6.1
+Version: 0.6.2
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -149,7 +149,15 @@ class wpu_acf_flexible__shopify {
             $args['key_name'] = $json_name;
         }
 
-        $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=id,title&limit=250';
+        $fields = array(
+            'id',
+            'title'
+        );
+        if ($json_name == 'products') {
+            $fields[] = 'variants';
+        }
+
+        $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=' . implode(',', $fields) . '&limit=250';
         $cache_key = 'wpu_acf_flexible__shopify__' . sanitize_title($json_name) . '_list';
         if (false === ($item_list = get_transient($cache_key))) {
             $item_list = $this->get_paged_query($endpoint_url, array(), $args['key_name']);
@@ -164,8 +172,12 @@ class wpu_acf_flexible__shopify {
         if (is_array($response) && !is_wp_error($response)) {
             $list_tmp = json_decode($response['body'], true);
             if (isset($list_tmp[$key]) && is_array($list_tmp[$key])) {
-                foreach ($list_tmp[$key] as $product) {
-                    $item_list[$product['id']] = $product['title'];
+                foreach ($list_tmp[$key] as $item) {
+                    $item_title = $item['title'];
+                    if (isset($item['variants'], $item['variants'][0], $item['variants'][0]['sku']) && !empty($item['variants'][0]['sku'])) {
+                        $item_title .= ' - ' . $item['variants'][0]['sku'];
+                    }
+                    $item_list[$item['id']] = $item_title;
                 }
             }
             $link = wp_remote_retrieve_header($response, 'link');
