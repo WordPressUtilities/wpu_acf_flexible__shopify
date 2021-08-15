@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.6.2
+Version: 0.6.3
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -151,6 +151,7 @@ class wpu_acf_flexible__shopify {
 
         $fields = array(
             'id',
+            'status',
             'title'
         );
         if ($json_name == 'products') {
@@ -167,6 +168,7 @@ class wpu_acf_flexible__shopify {
     }
 
     public function get_paged_query($endpoint_url, $item_list = array(), $key = 'products') {
+        $exclude_drafts = apply_filters('wpu_acf_flexible__shopify__exclude_drafts', true);
         $endpoint_url = str_replace($this->shop_url_my, $this->get_api_url(), $endpoint_url);
         $response = wp_remote_get($endpoint_url);
         if (is_array($response) && !is_wp_error($response)) {
@@ -176,6 +178,9 @@ class wpu_acf_flexible__shopify {
                     $item_title = $item['title'];
                     if (isset($item['variants'], $item['variants'][0], $item['variants'][0]['sku']) && !empty($item['variants'][0]['sku'])) {
                         $item_title .= ' - ' . $item['variants'][0]['sku'];
+                    }
+                    if (isset($item['status']) && $item['status'] == 'draft' && $exclude_drafts) {
+                        continue;
                     }
                     $item_list[$item['id']] = $item_title;
                 }
