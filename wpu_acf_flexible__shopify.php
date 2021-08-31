@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.6.3
+Version: 0.7.0
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -108,6 +108,7 @@ function wpu_acf_flexible__shopify__purge_cache() {
 class wpu_acf_flexible__shopify {
     private $api_version = '2020-04';
     private $shop_url_my = '';
+    private $api_time_limit_usec = 500000;
 
     public function __construct() {
         $this->shop_url_my = get_option('wpu_acfflexshopify__shop_url_myshopify');
@@ -171,6 +172,7 @@ class wpu_acf_flexible__shopify {
         $exclude_drafts = apply_filters('wpu_acf_flexible__shopify__exclude_drafts', true);
         $endpoint_url = str_replace($this->shop_url_my, $this->get_api_url(), $endpoint_url);
         $response = wp_remote_get($endpoint_url);
+        usleep($this->api_time_limit_usec);
         if (is_array($response) && !is_wp_error($response)) {
             $list_tmp = json_decode($response['body'], true);
             if (isset($list_tmp[$key]) && is_array($list_tmp[$key])) {
@@ -250,6 +252,7 @@ class wpu_acf_flexible__shopify {
         /* Outdated transient : get new cache */
         if (get_transient($item_transient_id) != '1') {
             $response = wp_remote_get($endpoint_url);
+            usleep($this->api_time_limit_usec);
             /* If response is valid, find if it’s a correct item */
             if (is_array($response) && !is_wp_error($response)) {
                 $p = json_decode($response['body']);
