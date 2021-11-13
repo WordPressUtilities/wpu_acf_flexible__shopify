@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.7.0
+Version: 0.8.0
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -12,86 +12,8 @@ License URI: http://opensource.org/licenses/MIT
 */
 
 /* ----------------------------------------------------------
-  Options
+  Purge Cache Action
 ---------------------------------------------------------- */
-
-add_filter('wpu_options_tabs', 'wpu_acf_flexible__shopify_options_tabs', 10, 3);
-function wpu_acf_flexible__shopify_options_tabs($tabs) {
-    $tabs['wpu_acf_flexible__shopify__tab'] = array(
-        'name' => 'ACF / Shopify',
-        'sidebar' => true
-    );
-    return $tabs;
-}
-
-add_filter('wpu_options_boxes', 'wpu_acf_flexible__shopify_options_boxes', 10, 3);
-function wpu_acf_flexible__shopify_options_boxes($boxes) {
-    $boxes['wpu_acf_flexible__shopify__box'] = array(
-        'name' => 'Access',
-        'tab' => 'wpu_acf_flexible__shopify__tab'
-    );
-    return $boxes;
-}
-
-add_filter('wpu_options_fields', 'wpu_acf_flexible__shopify_options_fields', 10, 3);
-function wpu_acf_flexible__shopify_options_fields($options) {
-    $options['wpu_acfflexshopify__api_key'] = array(
-        'label' => __('API Key', 'wpu_acfflexshopify'),
-        'box' => 'wpu_acf_flexible__shopify__box'
-    );
-    $options['wpu_acfflexshopify__api_password'] = array(
-        'label' => __('API password', 'wpu_acfflexshopify'),
-        'box' => 'wpu_acf_flexible__shopify__box'
-    );
-    $options['wpu_acfflexshopify__shop_url'] = array(
-        'label' => __('Shop URL', 'wpu_acfflexshopify'),
-        'box' => 'wpu_acf_flexible__shopify__box',
-        'type' => 'url',
-        'help' => 'https://YOURSHOP.com'
-    );
-    $options['wpu_acfflexshopify__shop_url_myshopify'] = array(
-        'label' => __('Shop URL MyShopify', 'wpu_acfflexshopify'),
-        'box' => 'wpu_acf_flexible__shopify__box',
-        'type' => 'url',
-        'help' => 'https://YOURSHOPNAME.myshopify.com'
-    );
-    return $options;
-}
-
-/* ----------------------------------------------------------
-  Purge Cache
----------------------------------------------------------- */
-
-/* Menu item */
-add_action('admin_bar_menu', function ($wp_adminbar) {
-    if (!current_user_can('upload_files')) {
-        return;
-    }
-    $wp_adminbar->add_node(array(
-        'id' => 'wpu_acfflexshopify',
-        'title' => 'Shopify',
-        'href' => admin_url('admin.php?page=wpuoptions-settings&tab=wpu_acf_flexible__shopify__tab')
-    ));
-    $wp_adminbar->add_node(array(
-        'id' => 'wpu_acfflexshopify__purge',
-        'title' => __('Purge Cache', 'wpu_acfflexshopify'),
-        'parent' => 'wpu_acfflexshopify',
-        'href' => admin_url('?purge_acf_shopify=1')
-    ));
-}, 999);
-
-/* Purge & redirect */
-add_action('admin_head', function () {
-    if (!current_user_can('upload_files')) {
-        return;
-    }
-    if (!isset($_GET['purge_acf_shopify']) || $_GET['purge_acf_shopify'] != '1') {
-        return;
-    }
-
-    wpu_acf_flexible__shopify__purge_cache();
-    echo '<script>window.location.href="' . admin_url() . '";</script>';
-});
 
 function wpu_acf_flexible__shopify__purge_cache() {
     global $wpdb;
@@ -106,12 +28,24 @@ function wpu_acf_flexible__shopify__purge_cache() {
 ---------------------------------------------------------- */
 
 class wpu_acf_flexible__shopify {
-    private $api_version = '2020-04';
+    private $api_version = '2021-10';
     private $shop_url_my = '';
     private $api_time_limit_usec = 500000;
+    private $purge_cache_user_level = 'upload_files';
 
     public function __construct() {
         $this->shop_url_my = get_option('wpu_acfflexshopify__shop_url_myshopify');
+
+        /* Options */
+        add_filter('wpu_options_tabs', array(&$this, 'options_tabs'), 10, 3);
+        add_filter('wpu_options_boxes', array(&$this, 'options_boxes'), 10, 3);
+        add_filter('wpu_options_fields', array(&$this, 'options_fields'), 10, 3);
+
+        /* Menu item */
+        add_action('admin_bar_menu', array(&$this, 'admin_bar_menu'), 999);
+
+        /* Purge & redirect */
+        add_action('admin_head', array(&$this, 'admin_head'));
     }
 
     public function get_api_url() {
@@ -149,6 +83,9 @@ class wpu_acf_flexible__shopify {
         if (!isset($args['key_name'])) {
             $args['key_name'] = $json_name;
         }
+        if (!isset($args['page_limit'])) {
+            $args['page_limit'] = apply_filters('wpu_acf_flexible__shopify__page_limit', 250);
+        }
 
         $fields = array(
             'id',
@@ -159,7 +96,7 @@ class wpu_acf_flexible__shopify {
             $fields[] = 'variants';
         }
 
-        $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=' . implode(',', $fields) . '&limit=250';
+        $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=' . implode(',', $fields) . '&limit=' . $args['page_limit'];
         $cache_key = 'wpu_acf_flexible__shopify__' . sanitize_title($json_name) . '_list';
         if (false === ($item_list = get_transient($cache_key))) {
             $item_list = $this->get_paged_query($endpoint_url, array(), $args['key_name']);
@@ -275,6 +212,83 @@ class wpu_acf_flexible__shopify {
         }
 
         return $p;
+    }
+
+    /* ----------------------------------------------------------
+      Cache
+    ---------------------------------------------------------- */
+
+    public function admin_bar_menu($wp_adminbar) {
+        if (!current_user_can($this->purge_cache_user_level)) {
+            return;
+        }
+        $wp_adminbar->add_node(array(
+            'id' => 'wpu_acfflexshopify',
+            'title' => 'Shopify',
+            'href' => admin_url('admin.php?page=wpuoptions-settings&tab=wpu_acf_flexible__shopify__tab')
+        ));
+        $wp_adminbar->add_node(array(
+            'id' => 'wpu_acfflexshopify__purge',
+            'title' => __('Purge Cache', 'wpu_acfflexshopify'),
+            'parent' => 'wpu_acfflexshopify',
+            'href' => admin_url('?purge_acf_shopify=1')
+        ));
+    }
+
+    public function admin_head() {
+        if (!current_user_can($this->purge_cache_user_level)) {
+            return;
+        }
+        if (!isset($_GET['purge_acf_shopify']) || $_GET['purge_acf_shopify'] != '1') {
+            return;
+        }
+
+        wpu_acf_flexible__shopify__purge_cache();
+        echo '<script>window.location.href="' . admin_url() . '";</script>';
+    }
+
+    /* ----------------------------------------------------------
+      Options
+    ---------------------------------------------------------- */
+
+    public function options_tabs($tabs) {
+        $tabs['wpu_acf_flexible__shopify__tab'] = array(
+            'name' => 'ACF / Shopify',
+            'sidebar' => true
+        );
+        return $tabs;
+    }
+
+    public function options_boxes($boxes) {
+        $boxes['wpu_acf_flexible__shopify__box'] = array(
+            'name' => 'Access',
+            'tab' => 'wpu_acf_flexible__shopify__tab'
+        );
+        return $boxes;
+    }
+
+    public function options_fields($options) {
+        $options['wpu_acfflexshopify__api_key'] = array(
+            'label' => __('API Key', 'wpu_acfflexshopify'),
+            'box' => 'wpu_acf_flexible__shopify__box'
+        );
+        $options['wpu_acfflexshopify__api_password'] = array(
+            'label' => __('API password', 'wpu_acfflexshopify'),
+            'box' => 'wpu_acf_flexible__shopify__box'
+        );
+        $options['wpu_acfflexshopify__shop_url'] = array(
+            'label' => __('Shop URL', 'wpu_acfflexshopify'),
+            'box' => 'wpu_acf_flexible__shopify__box',
+            'type' => 'url',
+            'help' => 'https://YOURSHOP.com'
+        );
+        $options['wpu_acfflexshopify__shop_url_myshopify'] = array(
+            'label' => __('Shop URL MyShopify', 'wpu_acfflexshopify'),
+            'box' => 'wpu_acf_flexible__shopify__box',
+            'type' => 'url',
+            'help' => 'https://YOURSHOPNAME.myshopify.com'
+        );
+        return $options;
     }
 
 }
