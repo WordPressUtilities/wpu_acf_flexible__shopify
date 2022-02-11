@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.8.0
+Version: 0.8.1
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -197,7 +197,7 @@ class wpu_acf_flexible__shopify {
                 /* Correct item : update cache */
                 if (is_object($p)) {
                     $item = $response['body'];
-                    update_option($item_option_id, $item);
+                    update_option($item_option_id, $item, false);
                 }
                 set_transient($item_transient_id, '1', $cache_duration);
             }
