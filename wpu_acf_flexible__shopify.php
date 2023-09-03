@@ -4,7 +4,7 @@
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.8.1
+Version: 0.8.2
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -16,6 +16,10 @@ License URI: http://opensource.org/licenses/MIT
 ---------------------------------------------------------- */
 
 function wpu_acf_flexible__shopify__purge_cache() {
+    /* Purge cache dir */
+    wpu_acf_flexible__shopify__purge_cache_dir();
+
+    /* Delete old transients */
     global $wpdb;
     $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify%'");
     foreach ($transient_products as $transient_name) {
@@ -98,9 +102,9 @@ class wpu_acf_flexible__shopify {
 
         $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=' . implode(',', $fields) . '&limit=' . $args['page_limit'];
         $cache_key = 'wpu_acf_flexible__shopify__' . sanitize_title($json_name) . '_list';
-        if (false === ($item_list = get_transient($cache_key))) {
+        if (false === ($item_list = wpu_acf_flexible__shopify__get_cache($cache_key, 24 * 60 * 60))) {
             $item_list = $this->get_paged_query($endpoint_url, array(), $args['key_name']);
-            set_transient($cache_key, $item_list, 24 * 60 * 60);
+            wpu_acf_flexible__shopify__set_cache($cache_key, $item_list);
         }
         return $item_list;
     }
@@ -180,14 +184,11 @@ class wpu_acf_flexible__shopify {
     public function get_endpoint_value($endpoint_url, $item_option_id, $cache_duration) {
         $p = false;
 
-        /* Set cache keys */
-        $item_transient_id = $item_option_id . '_' . md5($endpoint_url);
-
         /* Try to obtain cached value */
-        $item = get_option($item_option_id);
+        $item = wpu_acf_flexible__shopify__get_cache($item_option_id, $cache_duration);
 
         /* Outdated transient : get new cache */
-        if (get_transient($item_transient_id) != '1') {
+        if (!$item) {
             $response = wp_remote_get($endpoint_url);
             usleep($this->api_time_limit_usec);
             /* If response is valid, find if it’s a correct item */
@@ -197,9 +198,8 @@ class wpu_acf_flexible__shopify {
                 /* Correct item : update cache */
                 if (is_object($p)) {
                     $item = $response['body'];
-                    update_option($item_option_id, $item, false);
+                    wpu_acf_flexible__shopify__set_cache($item_option_id, $item);
                 }
-                set_transient($item_transient_id, '1', $cache_duration);
             }
         }
 
@@ -314,4 +314,52 @@ if (defined('WP_CLI') && WP_CLI) {
         $wpu_acf_flexible__shopify->get_product_list();
         WP_CLI::success('WPU ACF Flex Shopify: Cache Warmed for Product list');
     });
+}
+
+/* ----------------------------------------------------------
+  Cache
+---------------------------------------------------------- */
+
+function wpu_acf_flexible__shopify__get_cache_dir() {
+    $upload_dir = wp_get_upload_dir();
+    if (!is_array($upload_dir) || !isset($upload_dir['basedir'])) {
+        return false;
+    }
+    $cache_dir = $upload_dir['basedir'] . '/wpu_acf_flexible__shopify/';
+    if (!is_dir($cache_dir)) {
+        mkdir($cache_dir);
+        file_put_contents($cache_dir . '.htaccess', 'deny from all');
+    }
+    return $cache_dir;
+}
+
+function wpu_acf_flexible__shopify__purge_cache_dir() {
+    $upload_dir = wpu_acf_flexible__shopify__get_cache_dir();
+    if ($handle = opendir($upload_dir)) {
+        while (false !== ($file = readdir($handle))) {
+            if ($file != "." && $file != ".." && $file != ".htaccess" && !is_dir($upload_dir . DIRECTORY_SEPARATOR . $file)) {
+                unlink($upload_dir . DIRECTORY_SEPARATOR . $file);
+            }
+        }
+        closedir($handle);
+    }
+}
+
+function wpu_acf_flexible__shopify__get_cache($cache_id, $expiration = 3600) {
+    $cached_file = wpu_acf_flexible__shopify__get_cache_dir()  . $cache_id;
+    if (!file_exists($cached_file)) {
+        return false;
+    }
+    if (filemtime($cached_file) + $expiration < time()) {
+        return false;
+    }
+
+    return unserialize(file_get_contents($cached_file));
+}
+
+function wpu_acf_flexible__shopify__set_cache($cache_id, $content = '') {
+    $cached_file = wpu_acf_flexible__shopify__get_cache_dir() . '/' . $cache_id;
+    file_put_contents($cached_file, serialize($content));
+
+    return true;
 }
