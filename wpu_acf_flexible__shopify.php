@@ -3,39 +3,24 @@
 /*
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
+Update URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.8.2
+Version: 0.9.0
 Author: Darklg
-Author URI: http://darklg.me/
+Author URI: https://darklg.me/
+Text Domain: wpu_acf_flexible__shopify
+Requires at least: 6.2
+Requires PHP: 8.0
 License: MIT License
-License URI: http://opensource.org/licenses/MIT
+License URI: https://opensource.org/licenses/MIT
 */
-
-/* ----------------------------------------------------------
-  Purge Cache Action
----------------------------------------------------------- */
-
-function wpu_acf_flexible__shopify__purge_cache() {
-    /* Purge cache dir */
-    wpu_acf_flexible__shopify__purge_cache_dir();
-
-    /* Delete old transients */
-    global $wpdb;
-    $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify%'");
-    foreach ($transient_products as $transient_name) {
-        delete_transient(str_replace('_transient_', '', $transient_name));
-    }
-}
-
-/* ----------------------------------------------------------
-  Helpers
----------------------------------------------------------- */
 
 class wpu_acf_flexible__shopify {
     private $api_version = '2021-10';
     private $shop_url_my = '';
     private $api_time_limit_usec = 500000;
     private $purge_cache_user_level = 'upload_files';
+    private $wpubasefilecache;
 
     public function __construct() {
         $this->shop_url_my = get_option('wpu_acfflexshopify__shop_url_myshopify');
@@ -50,6 +35,10 @@ class wpu_acf_flexible__shopify {
 
         /* Purge & redirect */
         add_action('admin_head', array(&$this, 'admin_head'));
+
+        /* Cache */
+        include dirname( __FILE__ ) . '/inc/WPUBaseFileCache/WPUBaseFileCache.php';
+        $this->wpubasefilecache = new \wpu_acf_flexible__shopify\WPUBaseFileCache('wpu_acf_flexible__shopify');
     }
 
     public function get_api_url() {
@@ -102,9 +91,9 @@ class wpu_acf_flexible__shopify {
 
         $endpoint_url = $this->get_api_url() . '/admin/api/' . $this->api_version . '/' . $json_name . '.json?fields=' . implode(',', $fields) . '&limit=' . $args['page_limit'];
         $cache_key = 'wpu_acf_flexible__shopify__' . sanitize_title($json_name) . '_list';
-        if (false === ($item_list = wpu_acf_flexible__shopify__get_cache($cache_key, 24 * 60 * 60))) {
+        if (false === ($item_list = $this->wpubasefilecache->get_cache($cache_key, 24 * 60 * 60))) {
             $item_list = $this->get_paged_query($endpoint_url, array(), $args['key_name']);
-            wpu_acf_flexible__shopify__set_cache($cache_key, $item_list);
+            $this->wpubasefilecache->set_cache($cache_key, $item_list);
         }
         return $item_list;
     }
@@ -185,7 +174,7 @@ class wpu_acf_flexible__shopify {
         $p = false;
 
         /* Try to obtain cached value */
-        $item = wpu_acf_flexible__shopify__get_cache($item_option_id, $cache_duration);
+        $item = $this->wpubasefilecache->get_cache($item_option_id, $cache_duration);
 
         /* Outdated transient : get new cache */
         if (!$item) {
@@ -198,7 +187,7 @@ class wpu_acf_flexible__shopify {
                 /* Correct item : update cache */
                 if (is_object($p)) {
                     $item = $response['body'];
-                    wpu_acf_flexible__shopify__set_cache($item_option_id, $item);
+                    $this->wpubasefilecache->set_cache($item_option_id, $item);
                 }
             }
         }
@@ -243,7 +232,7 @@ class wpu_acf_flexible__shopify {
             return;
         }
 
-        wpu_acf_flexible__shopify__purge_cache();
+        $this->wpubasefilecache->purge_cache();
         echo '<script>window.location.href="' . admin_url() . '";</script>';
     }
 
@@ -317,49 +306,18 @@ if (defined('WP_CLI') && WP_CLI) {
 }
 
 /* ----------------------------------------------------------
-  Cache
+  Purge Cache Action
 ---------------------------------------------------------- */
 
-function wpu_acf_flexible__shopify__get_cache_dir() {
-    $upload_dir = wp_get_upload_dir();
-    if (!is_array($upload_dir) || !isset($upload_dir['basedir'])) {
-        return false;
-    }
-    $cache_dir = $upload_dir['basedir'] . '/wpu_acf_flexible__shopify/';
-    if (!is_dir($cache_dir)) {
-        mkdir($cache_dir);
-        file_put_contents($cache_dir . '.htaccess', 'deny from all');
-    }
-    return $cache_dir;
-}
+function wpu_acf_flexible__shopify__purge_cache() {
+    /* Purge cache dir */
+    $wpu_acf_flexible__shopify = new wpu_acf_flexible__shopify();
+    $wpu_acf_flexible__shopify->wpubasefilecache->purge_cache();
 
-function wpu_acf_flexible__shopify__purge_cache_dir() {
-    $upload_dir = wpu_acf_flexible__shopify__get_cache_dir();
-    if ($handle = opendir($upload_dir)) {
-        while (false !== ($file = readdir($handle))) {
-            if ($file != "." && $file != ".." && $file != ".htaccess" && !is_dir($upload_dir . DIRECTORY_SEPARATOR . $file)) {
-                unlink($upload_dir . DIRECTORY_SEPARATOR . $file);
-            }
-        }
-        closedir($handle);
+    /* Delete old transients */
+    global $wpdb;
+    $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify%'");
+    foreach ($transient_products as $transient_name) {
+        delete_transient(str_replace('_transient_', '', $transient_name));
     }
-}
-
-function wpu_acf_flexible__shopify__get_cache($cache_id, $expiration = 3600) {
-    $cached_file = wpu_acf_flexible__shopify__get_cache_dir()  . $cache_id;
-    if (!file_exists($cached_file)) {
-        return false;
-    }
-    if (filemtime($cached_file) + $expiration < time()) {
-        return false;
-    }
-
-    return unserialize(file_get_contents($cached_file));
-}
-
-function wpu_acf_flexible__shopify__set_cache($cache_id, $content = '') {
-    $cached_file = wpu_acf_flexible__shopify__get_cache_dir() . '/' . $cache_id;
-    file_put_contents($cached_file, serialize($content));
-
-    return true;
 }
