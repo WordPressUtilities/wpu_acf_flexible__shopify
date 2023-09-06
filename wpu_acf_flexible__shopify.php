@@ -5,7 +5,7 @@ Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Update URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.9.0
+Version: 0.10.0
 Author: Darklg
 Author URI: https://darklg.me/
 Text Domain: wpu_acf_flexible__shopify
@@ -16,7 +16,7 @@ License URI: https://opensource.org/licenses/MIT
 */
 
 class wpu_acf_flexible__shopify {
-    private $api_version = '2021-10';
+    private $api_version = '2023-07';
     private $shop_url_my = '';
     private $api_time_limit_usec = 500000;
     private $purge_cache_user_level = 'upload_files';
@@ -232,7 +232,7 @@ class wpu_acf_flexible__shopify {
             return;
         }
 
-        $this->wpubasefilecache->purge_cache();
+        $this->wpubasefilecache->purge_cache_dir();
         echo '<script>window.location.href="' . admin_url() . '";</script>';
     }
 
@@ -312,7 +312,7 @@ if (defined('WP_CLI') && WP_CLI) {
 function wpu_acf_flexible__shopify__purge_cache() {
     /* Purge cache dir */
     $wpu_acf_flexible__shopify = new wpu_acf_flexible__shopify();
-    $wpu_acf_flexible__shopify->wpubasefilecache->purge_cache();
+    $wpu_acf_flexible__shopify->wpubasefilecache->purge_cache_dir();
 
     /* Delete old transients */
     global $wpdb;

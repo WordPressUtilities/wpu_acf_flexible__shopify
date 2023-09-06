@@ -4,7 +4,7 @@ namespace wpu_acf_flexible__shopify;
 /*
 Class Name: WPU Base File Cache
 Description: A class to handle basic file cache
-Version: 0.1.0
+Version: 0.1.1
 Author: Darklg
 Author URI: https://darklg.me/
 License: MIT License
@@ -32,7 +32,7 @@ class WPUBaseFileCache {
         return $cache_dir;
     }
 
-    public function wpu_acf_flexible__shopify__purge_cache_dir() {
+    public function purge_cache_dir() {
         $upload_dir = $this->get_cache_dir();
         if ($handle = opendir($upload_dir)) {
             while (false !== ($file = readdir($handle))) {
