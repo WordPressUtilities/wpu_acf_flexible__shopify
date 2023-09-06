@@ -5,7 +5,7 @@ Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Update URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.10.0
+Version: 0.11.0
 Author: Darklg
 Author URI: https://darklg.me/
 Text Domain: wpu_acf_flexible__shopify
@@ -20,7 +20,7 @@ class wpu_acf_flexible__shopify {
     private $shop_url_my = '';
     private $api_time_limit_usec = 500000;
     private $purge_cache_user_level = 'upload_files';
-    private $wpubasefilecache;
+    public $wpubasefilecache;
 
     public function __construct() {
         $this->shop_url_my = get_option('wpu_acfflexshopify__shop_url_myshopify');
@@ -37,7 +37,7 @@ class wpu_acf_flexible__shopify {
         add_action('admin_head', array(&$this, 'admin_head'));
 
         /* Cache */
-        include dirname( __FILE__ ) . '/inc/WPUBaseFileCache/WPUBaseFileCache.php';
+        require_once dirname( __FILE__ ) . '/inc/WPUBaseFileCache/WPUBaseFileCache.php';
         $this->wpubasefilecache = new \wpu_acf_flexible__shopify\WPUBaseFileCache('wpu_acf_flexible__shopify');
     }
 
@@ -314,10 +314,17 @@ function wpu_acf_flexible__shopify__purge_cache() {
     $wpu_acf_flexible__shopify = new wpu_acf_flexible__shopify();
     $wpu_acf_flexible__shopify->wpubasefilecache->purge_cache_dir();
 
+
     /* Delete old transients */
     global $wpdb;
     $transient_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE '_transient_wpshopify_product_%' OR option_name LIKE '_transient_wpu_acf_flexible__shopify%'");
     foreach ($transient_products as $transient_name) {
         delete_transient(str_replace('_transient_', '', $transient_name));
+    }
+
+    /* Delete old options */
+    $options_products = $wpdb->get_col("SELECT option_name FROM $wpdb->options WHERE option_name LIKE 'wpshopify_product_%'");
+    foreach ($options_products as $option_name) {
+        delete_option($option_name);
     }
 }
