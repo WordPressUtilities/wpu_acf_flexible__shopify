@@ -1,11 +1,12 @@
 <?php
+defined('ABSPATH') || die;
 
 /*
 Plugin Name: WPU ACF Flexible Shopify
 Plugin URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Update URI: https://github.com/WordPressUtilities/wpu_acf_flexible__shopify
 Description: Helper for WPU ACF Flexible with Shopify
-Version: 0.11.0
+Version: 0.12.0
 Author: Darklg
 Author URI: https://darklg.me/
 Text Domain: wpu_acf_flexible__shopify
@@ -37,7 +38,7 @@ class wpu_acf_flexible__shopify {
         add_action('admin_head', array(&$this, 'admin_head'));
 
         /* Cache */
-        require_once dirname( __FILE__ ) . '/inc/WPUBaseFileCache/WPUBaseFileCache.php';
+        require_once __DIR__ . '/inc/WPUBaseFileCache/WPUBaseFileCache.php';
         $this->wpubasefilecache = new \wpu_acf_flexible__shopify\WPUBaseFileCache('wpu_acf_flexible__shopify');
     }
 

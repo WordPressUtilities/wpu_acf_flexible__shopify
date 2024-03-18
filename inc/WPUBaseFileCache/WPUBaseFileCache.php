@@ -4,12 +4,14 @@ namespace wpu_acf_flexible__shopify;
 /*
 Class Name: WPU Base File Cache
 Description: A class to handle basic file cache
-Version: 0.1.1
+Version: 0.1.3
 Author: Darklg
 Author URI: https://darklg.me/
 License: MIT License
 License URI: https://opensource.org/licenses/MIT
 */
+
+defined('ABSPATH') || die;
 
 class WPUBaseFileCache {
     private $cache_dir;
@@ -49,7 +51,7 @@ class WPUBaseFileCache {
         if (!file_exists($cached_file)) {
             return false;
         }
-        if (filemtime($cached_file) + $expiration < time()) {
+        if ($expiration && filemtime($cached_file) + $expiration < time()) {
             return false;
         }
 
